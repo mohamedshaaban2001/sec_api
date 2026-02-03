@@ -1,0 +1,84 @@
+﻿syntax = "proto3";
+
+option csharp_namespace = "SecGrpc";
+
+package Sec;
+
+// The greeting service definition.
+service SecServiceDefinition {
+  // Sends a greeting
+  rpc GetUserPermissions  (UserRequest) returns (UserResponse);
+  rpc GetMgrDebutyList  (MgrDebutyRequest) returns (MgrDebutyResponseList);
+  rpc GetAvailableModules  (ModuleRequest) returns (ModuleResponse);
+
+
+}
+
+message ModuleRequest {
+
+}
+
+
+message Module {
+
+  int32  id = 1;
+  string module_name = 2;
+
+}
+
+message ModuleResponse {
+  repeated Module Modules = 1; 
+}
+
+message UserRequest  {
+  string username = 1;
+  string password = 2;
+
+}
+
+//   response GetCurrent_Emp.
+message UserResponse {
+  repeated string controls = 1;
+  repeated string pages = 2;
+  repeated string signatures = 3;
+  repeated PageTree pages_tree = 4;
+   int32 id = 5;
+   string employee_name = 6;
+   int32 department_id = 7;
+   string job_name = 8;
+   string rank_name = 9;
+  repeated int32 archive_role = 10;
+   int32 job_id = 11;
+   int32 organization_id= 12;   
+   string sign = 13;
+  repeated string role = 14;
+
+}
+
+
+message PageTree {
+  int32 page_id = 1; // ✅ Added PageId
+  int32 parent_page_id = 2; // ✅ Added ParentPageId
+  string href = 3;
+  string title = 4;
+  string icon = 5;
+  int32 module_no = 6;
+  repeated PageTree children = 7;
+}
+
+
+message MgrDebutyRequest  {
+  string organization_id = 1;
+}
+
+message MgrDebutyResponse {
+
+   int32 BRANCH_NO = 1;
+   int32 employees_id =2;
+   int32 ARCHIVE_ROLE = 3;
+
+
+}
+message MgrDebutyResponseList {
+  repeated MgrDebutyResponse items = 1;
+}

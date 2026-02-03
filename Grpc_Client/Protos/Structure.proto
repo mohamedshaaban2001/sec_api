@@ -1,0 +1,102 @@
+syntax = "proto3";
+
+option csharp_namespace = "StructureGrpc";
+
+package structure;
+
+service StructureServiceDefinition {
+  rpc GetEmployees (GlobalRequest) returns (EmployeeResponse);
+  rpc GetJobs (GlobalRequest) returns (JobsResponse); 
+  rpc GetDepartments (GlobalRequest) returns (DepartmentResponse);
+  rpc GetLookups (EmptyRequest) returns (LookupsResponse);
+  rpc GetAllLookups (EmptyRequest) returns (LookupsAllResponse);
+
+}
+
+message GlobalRequest {
+  string columns = 1;
+  string whereClause = 2;
+}
+
+message Employee {
+
+  int32  id = 1;
+  string employee_name = 2;
+  int32 job_id = 3;
+  string job_name = 4;
+  int32 department_id = 5;
+  string department_name = 6;
+  int32 rank_id = 7;
+  string rank_name = 8;
+  int32 organization_id = 9;
+  string join_date = 10;
+  string birth_date = 11;
+  int32 maretal_state_id = 12;
+  
+}
+
+message EmployeeResponse {
+  repeated Employee Employees = 1; 
+}
+
+message Job {
+
+  int32  id = 1;
+  string name = 2;
+}
+
+message JobsResponse {
+  repeated Job Jobs = 1; 
+}
+
+message Department{
+	int32  id = 1;
+    string name = 2;
+	int32  parent_id = 3;
+	int32 organization_id = 4;
+}
+
+message DepartmentResponse{
+	repeated Department Departments = 1;
+}
+message EmptyRequest {
+}
+message Country{
+	int32  id = 1;
+    string name = 2;
+}
+message City{
+	int32  id = 1;
+    string name = 2;
+	int32 country_id = 3;
+}
+message EntityWithParent{
+	int32  id = 1;
+    string name = 2;
+	int32 parent_id = 3;
+}
+message EntityLookup{
+	int32  id = 1;
+    string name = 2;
+}
+message LookupsResponse {
+  repeated Country Countries = 1; 
+  repeated City Cities = 2; 
+}
+message LookupsAllResponse {
+  repeated EntityWithParent Countries = 1; 
+  repeated EntityWithParent Departments = 2; 
+  repeated EntityLookup Religions = 3; 
+  repeated EntityLookup Ranks = 4; 
+  repeated EntityLookup NationalTypes = 5; 
+  repeated EntityLookup Syndicates = 6; 
+  repeated EntityLookup Districts = 7; 
+  repeated EntityLookup MilitaryStates = 8; 
+  repeated EntityLookup MaretalStates = 9; 
+  repeated EntityLookup Jobs = 10; 
+  repeated EntityLookup EmployeeTypes = 11; 
+  repeated EntityLookup EmployeeStates = 12; 
+  repeated EntityLookup EmployeeDegrees = 13; 
+  repeated EntityLookup Cities =14 ; 
+}
+

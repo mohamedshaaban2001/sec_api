@@ -1,0 +1,2 @@
+﻿Add-Migration BaseMigration -Context RepositoryContext
+Update-Database -Context RepositoryContext

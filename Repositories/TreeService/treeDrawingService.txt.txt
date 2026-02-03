@@ -1,0 +1,41 @@
+ public async Task<List<MyTreeDto>> BuildTreeAsync(int? parentId = null)
+    {
+        // 1) Load only needed fields in one DB query
+        var allDtos = await _context.MyTreeEntities
+            .AsNoTracking()                    
+            .Select(entity => new MyTreeDto    // Project into DTO
+            {
+                Id = entity.Id,
+                Name = entity.Name,
+                ParentId = entity.ParentId
+            })
+            .ToListAsync();
+
+        // 2) Create a lookup for quick linking
+        var lookup = allDtos.ToDictionary(d => d.Id);
+
+        // 3) Build the hierarchy in memory
+        foreach (var dto in allDtos)
+        {
+            if (dto.ParentId.HasValue && lookup.TryGetValue(dto.ParentId.Value, out var parent))
+            {
+                parent.Children.Add(dto);
+            }
+        }
+
+        // 4) If parentId is null => get all top-level roots
+        //    If parentId is specified => return only that node (with its children)
+        if (parentId == null)
+        {
+            return allDtos
+                .Where(dto => dto.ParentId == null)
+                .ToList();
+        }
+        else
+        {
+            if (!lookup.ContainsKey(parentId.Value))
+                return new List<MyTreeDto>();
+
+            return new List<MyTreeDto> { lookup[parentId.Value] };
+        }
+    }

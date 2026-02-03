@@ -1,0 +1,11 @@
+using Contracts.BaseDtos;
+
+namespace Contracts.DTOs.SecModule;
+
+public class SecModuleCreateDto:BaseCreateDto
+{
+    public string ModuleName { get; set; }
+    public string? Icon { get; set; }
+    public string? Color { get; set; }
+
+}

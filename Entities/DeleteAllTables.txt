@@ -1,0 +1,30 @@
+DO
+$$
+DECLARE
+    tbl record;
+BEGIN
+    FOR tbl IN
+        SELECT tablename
+        FROM pg_tables
+        WHERE schemaname = 'public'
+    LOOP
+        EXECUTE format('DROP TABLE IF EXISTS %I.%I CASCADE', 'public', tbl.tablename);
+    END LOOP;
+END;
+$$;
+
+
+DO $$ 
+DECLARE 
+    seq RECORD;
+BEGIN
+    FOR seq IN 
+        SELECT c.relname AS sequence_name
+        FROM pg_class c
+        JOIN pg_namespace n ON n.oid = c.relnamespace
+        WHERE c.relkind = 'S' -- 'S' stands for sequences
+        AND n.nspname = 'public'
+    LOOP
+        EXECUTE format('DROP SEQUENCE IF EXISTS public.%I CASCADE', seq.sequence_name);
+    END LOOP;
+END $$;
