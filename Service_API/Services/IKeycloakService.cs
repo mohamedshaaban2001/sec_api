@@ -8,5 +8,6 @@ namespace Service_API.Services
         Task<bool> CreateUserAsync(UserCreateDto user, int personId);
         Task<bool> UpdateUserAsync(UserUpdateDto user, int personId);
         Task<bool> DeleteUserAsync(string username);
+        Task<List<string>> GetUserGroupsAsync(string userId);
     }
 }

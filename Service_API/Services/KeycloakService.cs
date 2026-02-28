@@ -147,6 +147,45 @@ namespace Service_API.Services
             }
         }
 
+        public async Task<List<string>> GetUserGroupsAsync(string userId)
+        {
+            var groups = new List<string>();
+            try
+            {
+                var token = await GetAccessTokenAsync();
+                var keycloakSettings = _configuration.GetSection("KeycloakAdmin");
+                var getGroupsUrl = $"{keycloakSettings["AuthServerUrl"]}/admin/realms/{keycloakSettings["Realm"]}/users/{userId}/groups";
+
+                _httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+                var response = await _httpClient.GetAsync(getGroupsUrl);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var content = await response.Content.ReadAsStringAsync();
+                    using var doc = JsonDocument.Parse(content);
+                    if (doc.RootElement.ValueKind == JsonValueKind.Array)
+                    {
+                        foreach (var element in doc.RootElement.EnumerateArray())
+                        {
+                            if (element.TryGetProperty("name", out var nameProperty))
+                            {
+                                var groupName = nameProperty.GetString();
+                                if (!string.IsNullOrEmpty(groupName))
+                                {
+                                    groups.Add(groupName);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                 Console.WriteLine($"Keycloak GetGroups Error: {ex.Message}");
+            }
+            return groups;
+        }
+
         private async Task<string> GetUserIdByUsername(string username, string token, string authServerUrl, string realm)
         {
             var searchUrl = $"{authServerUrl}/admin/realms/{realm}/users?username={username}&exact=true";

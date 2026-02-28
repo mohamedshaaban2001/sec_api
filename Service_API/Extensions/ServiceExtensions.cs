@@ -12,6 +12,10 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Repositories.Repositories;
 using System.Security.Claims;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Service_API;
+using Service_API.Services;
 namespace Service_API.Extensions
 {
     public static class ServiceExtensions
@@ -125,7 +129,7 @@ namespace Service_API.Extensions
                             logger.LogWarning(context.Exception, "JWT authentication failed");
                             return Task.CompletedTask;
                         },
-                        OnTokenValidated = context =>
+                        OnTokenValidated = async context =>
                         {
                             var identity = context.Principal?.Identity as ClaimsIdentity;
                             if (identity != null)
@@ -157,8 +161,28 @@ namespace Service_API.Extensions
                                     identity.AddClaim(new Claim("UNIVERSITIES", universities));
                                 }
 
+                                // Fetch and add User Groups
+                                try 
+                                {
+                                    var userId = identity.FindFirst(ClaimTypes.NameIdentifier)?.Value; // 'sub' claim
+                                    if (!string.IsNullOrEmpty(userId))
+                                    {
+                                        var keycloakService = context.HttpContext.RequestServices.GetRequiredService<Service_API.Services.IKeycloakService>();
+                                        var groups = await keycloakService.GetUserGroupsAsync(userId);
+                                        foreach (var group in groups)
+                                        {
+                                            // Add as 'groups' claim or 'role' depending on requirement. Using 'groups' for now.
+                                            identity.AddClaim(new Claim("groups", group));
+                                        }
+                                    }
+                                }
+                                catch (Exception ex)
+                                {
+                                    var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
+                                    logger.LogError(ex, "Failed to fetch user groups from Keycloak");
+                                }
+
                             }
-                            return Task.CompletedTask;
                         }
                     };
                 });
