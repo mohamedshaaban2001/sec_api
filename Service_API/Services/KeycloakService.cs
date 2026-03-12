@@ -241,6 +241,124 @@ namespace Service_API.Services
             }
         }
 
+        public async Task<bool> CreateRealmRoleAsync(string roleName, string? description = null)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(roleName))
+                {
+                    return false;
+                }
+
+                var trimmedRoleName = roleName.Trim();
+                var trimmedDescription = description?.Trim();
+                var token = await GetAccessTokenAsync();
+                var keycloakSettings = _configuration.GetSection("KeycloakAdmin");
+
+                var roleExists = await RealmRoleExistsAsync(trimmedRoleName, token, keycloakSettings);
+                if (roleExists)
+                {
+                    return true;
+                }
+
+                var createRoleUrl = $"{keycloakSettings["AuthServerUrl"]}/admin/realms/{keycloakSettings["Realm"]}/roles";
+                _httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+                var response = await _httpClient.PostAsJsonAsync(createRoleUrl, new
+                {
+                    name = trimmedRoleName,
+                    description = trimmedDescription
+                });
+
+                return response.IsSuccessStatusCode;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Keycloak CreateRealmRole Error: {ex.Message}");
+                return false;
+            }
+        }
+
+        public async Task<bool> UpdateRealmRoleAsync(string currentRoleName, string newRoleName, string? description = null)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(currentRoleName) || string.IsNullOrWhiteSpace(newRoleName))
+                {
+                    return false;
+                }
+
+                var trimmedCurrentRoleName = currentRoleName.Trim();
+                var trimmedNewRoleName = newRoleName.Trim();
+                var trimmedDescription = description?.Trim();
+                var token = await GetAccessTokenAsync();
+                var keycloakSettings = _configuration.GetSection("KeycloakAdmin");
+
+                var roleUrl = $"{keycloakSettings["AuthServerUrl"]}/admin/realms/{keycloakSettings["Realm"]}/roles/{Uri.EscapeDataString(trimmedCurrentRoleName)}";
+                _httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+                var getRoleResponse = await _httpClient.GetAsync(roleUrl);
+                if (!getRoleResponse.IsSuccessStatusCode)
+                {
+                    return false;
+                }
+
+                string? currentDescription = null;
+                var roleContent = await getRoleResponse.Content.ReadAsStringAsync();
+                if (!string.IsNullOrWhiteSpace(roleContent))
+                {
+                    using var roleDoc = JsonDocument.Parse(roleContent);
+                    if (roleDoc.RootElement.TryGetProperty("description", out var roleDescriptionElement))
+                    {
+                        currentDescription = roleDescriptionElement.GetString();
+                    }
+                }
+
+                var updateRoleResponse = await _httpClient.PutAsJsonAsync(roleUrl, new
+                {
+                    name = trimmedNewRoleName,
+                    description = string.IsNullOrWhiteSpace(trimmedDescription) ? currentDescription : trimmedDescription
+                });
+
+                return updateRoleResponse.IsSuccessStatusCode;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Keycloak UpdateRealmRole Error: {ex.Message}");
+                return false;
+            }
+        }
+
+        public async Task<bool> DeleteRealmRoleAsync(string roleName)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(roleName))
+                {
+                    return false;
+                }
+
+                var trimmedRoleName = roleName.Trim();
+                var token = await GetAccessTokenAsync();
+                var keycloakSettings = _configuration.GetSection("KeycloakAdmin");
+                var deleteRoleUrl = $"{keycloakSettings["AuthServerUrl"]}/admin/realms/{keycloakSettings["Realm"]}/roles/{Uri.EscapeDataString(trimmedRoleName)}";
+
+                _httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+                var response = await _httpClient.DeleteAsync(deleteRoleUrl);
+
+                if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+                {
+                    return true;
+                }
+
+                return response.IsSuccessStatusCode;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Keycloak DeleteRealmRole Error: {ex.Message}");
+                return false;
+            }
+        }
+
         public async Task<List<string>> GetUserGroupsAsync(string userId)
         {
             var groups = new List<string>();
@@ -319,6 +437,15 @@ namespace Service_API.Services
             }
 
             return null;
+        }
+
+        private async Task<bool> RealmRoleExistsAsync(string roleName, string token, IConfigurationSection keycloakSettings)
+        {
+            var roleUrl = $"{keycloakSettings["AuthServerUrl"]}/admin/realms/{keycloakSettings["Realm"]}/roles/{Uri.EscapeDataString(roleName)}";
+            _httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+            var response = await _httpClient.GetAsync(roleUrl);
+            return response.IsSuccessStatusCode;
         }
 
         private async Task<string> GetUserIdByUsername(string username, string token, string authServerUrl, string realm)

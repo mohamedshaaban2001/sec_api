@@ -6,5 +6,4 @@ public class SecControlListDto:BaseDto
 {
     public string ControlCode { get; set; } = null!;
     public string ControlDescription { get; set; } = null!;
-    public int PageId { get; set; }
 }

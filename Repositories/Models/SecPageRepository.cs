@@ -64,7 +64,6 @@ public class SecPageRepository : RepositoryBase<SecPage, SecPageDto, SecPageCrea
                 Controls=e.SecControlLists.Select(e=> new Contracts.DTOs.SecControlList.SecControlListDto
                 {
                     Id=e.Id,
-                    PageId=e.PageId,
                     ControlCode=e.ControlCode,
                     ControlDescription=e.ControlDescription
                 }).ToList()
