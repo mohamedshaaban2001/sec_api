@@ -172,6 +172,22 @@ public class SecPageRepository : RepositoryBase<SecPage, SecPageDto, SecPageCrea
     {
         try
         {
+            var resolvedModuleCode = await ResolveModuleCodeForCreate(
+                entityCreate.ParentId,
+                entityCreate.ServiceCode,
+                entityCreate.ModuleCode
+            );
+
+            if (resolvedModuleCode == null)
+            {
+                return new ParentResponseModel()
+                {
+                    ErrorCode = ErrorCatalog.ObjectNotFound,
+                    IsDone = false,
+                    ReturnMessage = "No available module found for this page."
+                };
+            }
+
             string userCode = _httpContextAccessor?.HttpContext?.User.FindFirst("EMP_SERIAL")?.Value;
             var entity = new SecPage()
             {
@@ -181,7 +197,7 @@ public class SecPageRepository : RepositoryBase<SecPage, SecPageDto, SecPageCrea
                 PageOrder = entityCreate.PageOrder,
                 ParentId = entityCreate.ParentId,
                 PageUrl = entityCreate.PageUrl,
-                ModuleCode = entityCreate.ModuleCode,
+                ModuleCode = resolvedModuleCode.Value,
                 ServiceCode = entityCreate.ServiceCode,
                 Icon = entityCreate.Icon
                 //SecGroupPages = entityCreate.GroupIds.Select(group => new SecGroupPage()
@@ -291,8 +307,11 @@ public class SecPageRepository : RepositoryBase<SecPage, SecPageDto, SecPageCrea
 
             entity.Icon = secPageUpdateDto.Icon ?? entity.Icon;
             entity.PageUrl = secPageUpdateDto.PageUrl ?? entity.PageUrl;
-            entity.ModuleCode = secPageUpdateDto.ModuleCode;
-            
+            if (secPageUpdateDto.ModuleCode.HasValue && secPageUpdateDto.ModuleCode.Value > 0)
+            {
+                entity.ModuleCode = secPageUpdateDto.ModuleCode.Value;
+            }
+
             entity.ServiceCode = secPageUpdateDto.ServiceCode!=null?(int)secPageUpdateDto.ServiceCode:null;
 
 
@@ -367,5 +386,48 @@ public class SecPageRepository : RepositoryBase<SecPage, SecPageDto, SecPageCrea
                 ReturnMessage = ex.Message,
             };
         }
+    }
+
+    private async Task<int?> ResolveModuleCodeForCreate(int? parentId, int? serviceCode, int? requestedModuleCode)
+    {
+        if (requestedModuleCode.HasValue && requestedModuleCode.Value > 0)
+        {
+            return requestedModuleCode.Value;
+        }
+
+        if (parentId.HasValue)
+        {
+            var parentModuleCode = await RepositoryContext.SecPages
+                .AsNoTracking()
+                .Where(p => p.Id == parentId.Value)
+                .Select(p => (int?)p.ModuleCode)
+                .FirstOrDefaultAsync();
+
+            if (parentModuleCode.HasValue && parentModuleCode.Value > 0)
+            {
+                return parentModuleCode.Value;
+            }
+        }
+
+        if (serviceCode.HasValue)
+        {
+            var serviceModuleCode = await RepositoryContext.SecServices
+                .AsNoTracking()
+                .Where(s => s.Id == serviceCode.Value)
+                .Select(s => (int?)s.ModuleNo)
+                .FirstOrDefaultAsync();
+
+            if (serviceModuleCode.HasValue && serviceModuleCode.Value > 0)
+            {
+                return serviceModuleCode.Value;
+            }
+        }
+
+        return await RepositoryContext.SecModules
+            .AsNoTracking()
+            .Where(m => m.IsDeleted == false && m.IsTaken == true)
+            .OrderBy(m => m.Id)
+            .Select(m => (int?)m.Id)
+            .FirstOrDefaultAsync();
     }
 }

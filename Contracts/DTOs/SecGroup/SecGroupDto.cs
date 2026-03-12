@@ -4,6 +4,7 @@ namespace Contracts.DTOs.SecGroup;
 
 public class SecGroupDto:BaseDto
 {
+    public string? GroupName { get; set; }
     public List<Dictionary<string, string>>? Headers { get; set; }
     public List<Dictionary<string, object>>? Rows { get; set; }       
 

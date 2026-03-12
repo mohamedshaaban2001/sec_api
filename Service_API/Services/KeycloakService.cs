@@ -147,6 +147,100 @@ namespace Service_API.Services
             }
         }
 
+        public async Task<bool> CreateGroupAsync(string groupName)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(groupName))
+                {
+                    return false;
+                }
+
+                var token = await GetAccessTokenAsync();
+                var keycloakSettings = _configuration.GetSection("KeycloakAdmin");
+                var createGroupUrl = $"{keycloakSettings["AuthServerUrl"]}/admin/realms/{keycloakSettings["Realm"]}/groups";
+
+                _httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+                var response = await _httpClient.PostAsJsonAsync(createGroupUrl, new { name = groupName.Trim() });
+
+                return response.IsSuccessStatusCode;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Keycloak CreateGroup Error: {ex.Message}");
+                return false;
+            }
+        }
+
+        public async Task<bool> UpdateGroupAsync(string currentGroupName, string newGroupName)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(currentGroupName) || string.IsNullOrWhiteSpace(newGroupName))
+                {
+                    return false;
+                }
+
+                var trimmedCurrentName = currentGroupName.Trim();
+                var trimmedNewName = newGroupName.Trim();
+                if (string.Equals(trimmedCurrentName, trimmedNewName, StringComparison.Ordinal))
+                {
+                    return true;
+                }
+
+                var token = await GetAccessTokenAsync();
+                var keycloakSettings = _configuration.GetSection("KeycloakAdmin");
+
+                var groupId = await GetGroupIdByNameAsync(trimmedCurrentName, token, keycloakSettings);
+                if (string.IsNullOrWhiteSpace(groupId))
+                {
+                    return false;
+                }
+
+                var updateGroupUrl = $"{keycloakSettings["AuthServerUrl"]}/admin/realms/{keycloakSettings["Realm"]}/groups/{groupId}";
+                _httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+                var response = await _httpClient.PutAsJsonAsync(updateGroupUrl, new { name = trimmedNewName });
+
+                return response.IsSuccessStatusCode;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Keycloak UpdateGroup Error: {ex.Message}");
+                return false;
+            }
+        }
+
+        public async Task<bool> DeleteGroupAsync(string groupName)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(groupName))
+                {
+                    return false;
+                }
+
+                var token = await GetAccessTokenAsync();
+                var keycloakSettings = _configuration.GetSection("KeycloakAdmin");
+
+                var groupId = await GetGroupIdByNameAsync(groupName.Trim(), token, keycloakSettings);
+                if (string.IsNullOrWhiteSpace(groupId))
+                {
+                    return true;
+                }
+
+                var deleteGroupUrl = $"{keycloakSettings["AuthServerUrl"]}/admin/realms/{keycloakSettings["Realm"]}/groups/{groupId}";
+                _httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+                var response = await _httpClient.DeleteAsync(deleteGroupUrl);
+
+                return response.IsSuccessStatusCode;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Keycloak DeleteGroup Error: {ex.Message}");
+                return false;
+            }
+        }
+
         public async Task<List<string>> GetUserGroupsAsync(string userId)
         {
             var groups = new List<string>();
@@ -184,6 +278,47 @@ namespace Service_API.Services
                  Console.WriteLine($"Keycloak GetGroups Error: {ex.Message}");
             }
             return groups;
+        }
+
+        private async Task<string?> GetGroupIdByNameAsync(string groupName, string token, IConfigurationSection keycloakSettings)
+        {
+            var searchUrl = $"{keycloakSettings["AuthServerUrl"]}/admin/realms/{keycloakSettings["Realm"]}/groups?search={Uri.EscapeDataString(groupName)}";
+            _httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+            var response = await _httpClient.GetAsync(searchUrl);
+            if (!response.IsSuccessStatusCode)
+            {
+                return null;
+            }
+
+            var content = await response.Content.ReadAsStringAsync();
+            using var doc = JsonDocument.Parse(content);
+
+            if (doc.RootElement.ValueKind != JsonValueKind.Array)
+            {
+                return null;
+            }
+
+            foreach (var group in doc.RootElement.EnumerateArray())
+            {
+                if (!group.TryGetProperty("name", out var nameProperty))
+                {
+                    continue;
+                }
+
+                var foundName = nameProperty.GetString();
+                if (!string.Equals(foundName, groupName, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                if (group.TryGetProperty("id", out var idProperty))
+                {
+                    return idProperty.GetString();
+                }
+            }
+
+            return null;
         }
 
         private async Task<string> GetUserIdByUsername(string username, string token, string authServerUrl, string realm)

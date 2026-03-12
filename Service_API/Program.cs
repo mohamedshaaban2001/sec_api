@@ -25,7 +25,7 @@ namespace Service_API
 
             builder.Services.ConfigureDataBase(builder.Configuration);
 
-            //builder.Services.ConfigureJwtBearer(builder.Configuration);
+            builder.Services.ConfigureJwtBearer(builder.Configuration);
 
             builder.Services.ConfigureRepositoryWrapper();
             builder.Services.AddHttpClient<Service_API.Services.IKeycloakService, Service_API.Services.KeycloakService>()
