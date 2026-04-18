@@ -1,13 +1,13 @@
 ﻿using Contracts.DTOs.SecGroup;
-using Contracts.DTOs.SecModule;
 using Contracts.DTOs.SecService;
 
 namespace Contracts.DTOs.SecPage;
 
-public class SecPagelookupDto 
+/// <summary>
+/// Lookups for page administration. Modules are no longer part of the public model.
+/// </summary>
+public class SecPagelookupDto
 {
-    public List<SecModuleSmallDto> Modules { get; set; } 
-    public List <SecGroupSmallDto> Groups { get; set; }
-    public List <SecServiceDto> Services { get; set; }
-
+    public List<SecGroupSmallDto> Groups { get; set; } = null!;
+    public List<SecServiceDto> Services { get; set; } = null!;
 }

@@ -39,7 +39,14 @@ public class SecGroupEmployeeRepository : RepositoryBase<SecGroupEmployee, SecGr
     {
         try
         {
+            var personIdsWithUser = await RepositoryContext.Users.AsNoTracking()
+                .Where(u => u.IsDeleted == false && u.EmpSerial != null)
+                .Select(u => u.EmpSerial!.Value)
+                .Distinct()
+                .ToListAsync();
+
             var employees = await RepositoryContext.Persons.AsNoTracking()
+                .Where(p => personIdsWithUser.Contains(p.Id))
                 .Select(p => new
                 {
                     p.Id,
@@ -65,7 +72,7 @@ public class SecGroupEmployeeRepository : RepositoryBase<SecGroupEmployee, SecGr
         }
         catch (Exception ex)
         {
-            _logger.logErrorWithException(ex, $"{typeof(SecGroup).Name} ===> GetGroupsWithEmployeesAndJobsBasedOnModule ");
+            _logger.logErrorWithException(ex, $"{typeof(SecGroupEmployee).Name} ===> GetGroupsWithEmployeesAndJobsFromGrpc ");
             return new ParentResponseModel()
             {
                 ErrorCode = ErrorCatalog.DataBaseFauiler,

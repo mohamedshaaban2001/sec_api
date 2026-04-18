@@ -50,12 +50,12 @@ public class SecGroupPageRepository : RepositoryBase<SecGroupPage, SecGroupPageD
                     PageId = e.PageCode,
                     PageIcon = e.SecPage.Icon,
                     PageName = e.SecPage.PageName,
-                    Controls = RepositoryContext.SecControlLists.Where(c => c.PageId == e.PageCode)
-                            .Select(m => new ControlsForSpecificPageAndGroup
+                    Privileges = RepositoryContext.SecControlLists.Where(c => c.PageId == e.PageCode && c.IsDeleted == false)
+                            .Select(m => new GroupPagePrivilegeDto
                             {
-                                ControlId = m.Id,
-                                ControlName = m.ControlDescription,
-                                IsAssigned = m.SecGroupControls.Any(scp => scp.GroupCode == groupId && scp.PageCode == e.PageCode)
+                                PrivilegeId = m.Id,
+                                PrivilegeName = m.ControlDescription,
+                                IsAssigned = m.SecGroupControls.Any(scp => scp.GroupCode == groupId && scp.PageCode == e.PageCode && scp.IsDeleted == false)
                             }).ToList()
                 }).ToListAsync();
 

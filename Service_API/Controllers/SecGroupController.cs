@@ -85,29 +85,26 @@ public class SecGroupController : BaseController<SecGroup, SecGroupDto, SecGroup
         return HandleResponse(response);
     }
 
-    [HttpGet("AvailableModulesWithGroup/{groupId}")]
-    public  async Task<IActionResult> AvailableModulesWithGroup(int groupId)
-    {
-        var response = await _repositoryWrapper.SecGroups.AvailableModulesWithGroup(groupId);
-        return HandleResponse(response);
-    }
-    [HttpGet("GetModulesForLookups")]
-    public async Task<IActionResult> GetModulesForLookups()
-    {
-        var response = await _repositoryWrapper.SecGroups.GetModulesForLookups();
-        return HandleResponse(response);
-    }
-
-    [HttpGet("GetGroupsWithEmployeesAndJobsBasedOnModule/{moduleId}")]
-    public  async Task<IActionResult> GetGroupsWithEmployeesAndJobsBasedOnModule(int moduleId)
-    {
-        var response = await _repositoryWrapper.SecGroups.GetGroupsWithEmployeesAndJobsBasedOnModule(moduleId);
-        return HandleResponse(response);
-    }
     [HttpGet("GetGroupsWithEmployeesAndJobs")]
     public async Task<IActionResult> GetGroupsWithEmployeesAndJobs()
     {
         var response = await _repositoryWrapper.SecGroupEmployees.GetGroupsWithEmployeesAndJobsFromGrpc();
+        return HandleResponse(response);
+    }
+
+    /// <summary>Employees currently assigned to this group (use each <c>id</c> as <c>EmpCode</c> when adding/removing).</summary>
+    [HttpGet("GetEmployeesForGroup/{groupId}")]
+    public async Task<IActionResult> GetEmployeesForGroup(int groupId)
+    {
+        var response = await _repositoryWrapper.SecGroups.GetEmployeesForGroup(groupId);
+        return HandleResponse(response);
+    }
+
+    /// <summary>Jobs currently assigned to this group (use each <c>id</c> as <c>JobCode</c> when adding/removing).</summary>
+    [HttpGet("GetJobsForGroup/{groupId}")]
+    public async Task<IActionResult> GetJobsForGroup(int groupId)
+    {
+        var response = await _repositoryWrapper.SecGroups.GetJobsForGroup(groupId);
         return HandleResponse(response);
     }
 

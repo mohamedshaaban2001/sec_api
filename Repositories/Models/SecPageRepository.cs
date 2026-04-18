@@ -12,6 +12,7 @@ using Microsoft.EntityFrameworkCore;
 using Contracts.DTOs.SecGroup;
 using Contracts.DTOs.SecModule;
 using Mapster;
+using Contracts.DTOs.Privilege;
 using Contracts.DTOs.SecControlList;
 using Contracts.DTOs.SecService;
 
@@ -50,22 +51,16 @@ public class SecPageRepository : RepositoryBase<SecPage, SecPageDto, SecPageCrea
                 Icon = e.Icon,
                 ParentId = e.ParentId,
                 ParentName = e.Parent.PageName,
-                PageUrl=e.PageUrl,
+                PageUrl = e.PageUrl,
                 PageOrder = e.PageOrder,
-                ModuleCode = e.ModuleCode,
-                ModuleName = e.SecModule.ModuleName,
                 ServiceCode = e.ServiceCode,
                 ServiceName = e.SecService.ServiceName,
-                //Groups = e.SecGroupPages.Select(e => new SecGroupPageSmallDto
-                //{
-                //    Id = e.Id,
-                //    GroupName = e.SecGroup.GroupName
-                //}).ToList(),
-                Controls=e.SecControlLists.Select(e=> new Contracts.DTOs.SecControlList.SecControlListDto
+                Privileges = e.SecControlLists.Where(c => c.IsDeleted == false).Select(c => new PrivilegeDto
                 {
-                    Id=e.Id,
-                    ControlCode=e.ControlCode,
-                    ControlDescription=e.ControlDescription
+                    Id = c.Id,
+                    PageId = c.PageId,
+                    Code = c.ControlCode,
+                    Description = c.ControlDescription
                 }).ToList()
             }).ToListAsync();
             return new ListOfObjectsResponseModel<SecPageDto>()
@@ -125,26 +120,17 @@ public class SecPageRepository : RepositoryBase<SecPage, SecPageDto, SecPageCrea
             var lookups = new SecPagelookupDto();
             var groups = await RepositoryContext.SecGroups.Select(e => new SecGroupSmallDto
             {
-                Id=e.Id,
-                Name=e.GroupName,
-                ModuleIds=e.SecModuleGroups.Select(e=>e.ModuleCode).ToList()    
-            }).ToListAsync();
-            var modules = await RepositoryContext.SecModules.Where(e=>(bool)e.IsTaken).Select(e => new SecModuleSmallDto
-            {
                 Id = e.Id,
-                Name = e.ModuleName,
-                Color=e.Color,
-                Icon=e.Icon
+                Name = e.GroupName
             }).ToListAsync();
             var services = await RepositoryContext.SecServices.Where(e => (bool)e.IsTaken).Select(e => new SecServiceDto
             {
                 Id = e.Id,
-                ModuleNo=e.ModuleNo,
-                ServiceName=e.ServiceName
+                ModuleNo = e.ModuleNo,
+                ServiceName = e.ServiceName
             }).ToListAsync();
-            lookups.Modules = modules;
-            lookups.Groups=groups;
-            lookups.Services=services;
+            lookups.Groups = groups;
+            lookups.Services = services;
             return new SingleObjectResponseModel<SecPagelookupDto>()
             {
                 ErrorCode = ErrorCatalog.noError,
@@ -301,7 +287,22 @@ public class SecPageRepository : RepositoryBase<SecPage, SecPageDto, SecPageCrea
             }
 
             entity.PageName = secPageUpdateDto.PageName ?? entity.PageName;
-            entity.PageOrder = secPageUpdateDto.PageOrder;
+
+            var newOrder = secPageUpdateDto.PageOrder;
+            var oldOrder = entity.PageOrder;
+            if (newOrder != oldOrder)
+            {
+                var other = await RepositoryContext.SecPages.AsTracking()
+                    .FirstOrDefaultAsync(p =>
+                        p.ModuleCode == entity.ModuleCode &&
+                        p.PageOrder == newOrder &&
+                        p.Id != entity.Id &&
+                        p.IsDeleted == false);
+                if (other != null)
+                    other.PageOrder = oldOrder;
+            }
+
+            entity.PageOrder = newOrder;
             entity.ParentId = secPageUpdateDto.ParentId;
 
             entity.Icon = secPageUpdateDto.Icon ?? entity.Icon;
@@ -332,9 +333,137 @@ public class SecPageRepository : RepositoryBase<SecPage, SecPageDto, SecPageCrea
                 ReturnMessage = "Object updated successufly",
             };
         }
+        catch (DbUpdateException ex)
+        {
+            _logger.logErrorWithException(ex, $"{typeof(SecPage).Name} ===> Update ");
+            return new ParentResponseModel()
+            {
+                ErrorCode = ErrorCatalog.DataBaseFauiler,
+                IsDone = false,
+                ReturnMessage =
+                    "Page order conflicts with another page in the same module. Use PUT SecPage/Reorder with all new orders in one request, or ensure orders are unique per module.",
+            };
+        }
         catch (Exception ex)
         {
             _logger.logErrorWithException(ex, $"{typeof(SecPage).Name} ===> Update ");
+            return new ParentResponseModel()
+            {
+                ErrorCode = ErrorCatalog.DataBaseFauiler,
+                IsDone = false,
+                ReturnMessage = ex.Message,
+            };
+        }
+    }
+
+    public async Task<ParentResponseModel> ReorderPages(ReorderSecPagesDto reorder)
+    {
+        try
+        {
+            if (reorder?.Items == null || reorder.Items.Count == 0)
+            {
+                return new ParentResponseModel()
+                {
+                    ErrorCode = ErrorCatalog.missingValues,
+                    IsDone = false,
+                    ReturnMessage = "Items are required."
+                };
+            }
+
+            var ids = reorder.Items.Select(i => i.Id).Distinct().ToList();
+            var explicitOrderById = reorder.Items
+                .GroupBy(i => i.Id)
+                .ToDictionary(g => g.Key, g => g.Last().PageOrder);
+
+            await using var tx = await RepositoryContext.Database.BeginTransactionAsync();
+            try
+            {
+                var batchPages = await RepositoryContext.SecPages
+                    .Where(p => ids.Contains(p.Id) && p.IsDeleted == false)
+                    .ToListAsync();
+
+                if (batchPages.Count != ids.Count)
+                {
+                    await tx.RollbackAsync();
+                    return new ParentResponseModel()
+                    {
+                        ErrorCode = ErrorCatalog.ObjectNotFound,
+                        IsDone = false,
+                        ReturnMessage = "One or more pages were not found."
+                    };
+                }
+
+                var moduleCodes = batchPages.Select(p => p.ModuleCode).Distinct().ToList();
+                var allInModules = await RepositoryContext.SecPages
+                    .Where(p => moduleCodes.Contains(p.ModuleCode) && p.IsDeleted == false)
+                    .ToListAsync();
+
+                var oldOrderById = allInModules.ToDictionary(p => p.Id, p => p.PageOrder);
+
+                const int tempOffset = 1_000_000;
+                foreach (var p in allInModules)
+                    p.PageOrder = tempOffset + p.Id;
+
+                await RepositoryContext.SaveChangesAsync();
+
+                foreach (var moduleCode in moduleCodes)
+                {
+                    var inMod = allInModules.Where(p => p.ModuleCode == moduleCode).ToList();
+                    var used = new HashSet<int>();
+                    foreach (var p in inMod)
+                    {
+                        if (explicitOrderById.TryGetValue(p.Id, out var ord))
+                        {
+                            p.PageOrder = ord;
+                            used.Add(ord);
+                        }
+                    }
+
+                    var orphans = inMod
+                        .Where(p => !explicitOrderById.ContainsKey(p.Id))
+                        .OrderBy(p => oldOrderById[p.Id])
+                        .ToList();
+                    var next = 1;
+                    foreach (var o in orphans)
+                    {
+                        while (used.Contains(next))
+                            next++;
+                        o.PageOrder = next;
+                        used.Add(next);
+                        next++;
+                    }
+                }
+
+                await RepositoryContext.SaveChangesAsync();
+                await tx.CommitAsync();
+            }
+            catch
+            {
+                await tx.RollbackAsync();
+                throw;
+            }
+
+            return new ParentResponseModel()
+            {
+                ErrorCode = ErrorCatalog.noError,
+                IsDone = true,
+                ReturnMessage = "Page order updated successfully."
+            };
+        }
+        catch (DbUpdateException ex)
+        {
+            _logger.logErrorWithException(ex, $"{typeof(SecPage).Name} ===> ReorderPages ");
+            return new ParentResponseModel()
+            {
+                ErrorCode = ErrorCatalog.DataBaseFauiler,
+                IsDone = false,
+                ReturnMessage =
+                    "Could not save page order. Ensure each page order is unique within its module, or check for duplicate ids in the request.",
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.logErrorWithException(ex, $"{typeof(SecPage).Name} ===> ReorderPages ");
             return new ParentResponseModel()
             {
                 ErrorCode = ErrorCatalog.DataBaseFauiler,

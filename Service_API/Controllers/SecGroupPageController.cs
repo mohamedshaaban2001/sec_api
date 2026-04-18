@@ -40,10 +40,17 @@ public class SecGroupPageController : BaseController<SecGroupPage, SecGroupPageD
         return HandleResponse(response);
     }
 
-    [HttpPost("AssignControlsToPageInGroup")]
-    public async Task<IActionResult> AssignControlsToPageInGroup([FromBody]AssignControlsToPageInGroup assignControlsToPageInGroup)
+    /// <summary>Assigns privileges (controls) for one page on one group.</summary>
+    [HttpPost("AssignPrivilegesToPageInGroup")]
+    public async Task<IActionResult> AssignPrivilegesToPageInGroup([FromBody] AssignPrivilegesToPageInGroup body)
     {
-        var response = await _repositoryWrapper.SecGroupPages.AssignControlsToPageInGroup(assignControlsToPageInGroup);
+        var mapped = new AssignControlsToPageInGroup
+        {
+            GroupId = body.GroupId,
+            PageId = body.PageId,
+            ControlIds = body.PrivilegeIds
+        };
+        var response = await _repositoryWrapper.SecGroupPages.AssignControlsToPageInGroup(mapped);
         return HandleResponse(response);
     }
 

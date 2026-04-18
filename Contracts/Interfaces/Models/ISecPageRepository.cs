@@ -11,4 +11,5 @@ public interface ISecPageRepository : IRepositoryBase<SecPage, SecPageDto, SecPa
     Task<ParentResponseModel> CreateControlForPage(AddControlToPage assignControlToPage);
     Task<ParentResponseModel> GetLookupsForCreatePage();
     Task<ParentResponseModel> GetPagesForLookup();
+    Task<ParentResponseModel> ReorderPages(ReorderSecPagesDto reorder);
 }

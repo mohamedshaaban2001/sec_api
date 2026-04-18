@@ -10,6 +10,7 @@ using Service_API.BaseControllers;
 
 namespace Service_API.Controllers;
 
+[ApiExplorerSettings(IgnoreApi = true)]
 [ApiController]
 [Route("[controller]")]
 public class SecModuleGroupController : BaseController<SecModuleGroup, SecModuleGroupDto, SecModuleGroupCreateDto, SecModuleGroupUpdateDto>

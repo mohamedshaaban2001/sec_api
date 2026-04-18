@@ -46,6 +46,7 @@ public class SecControlListRepository : RepositoryBase<SecControlList, SecContro
                 .Select(e => new SecControlListDto
                 {
                     Id = e.Id,
+                    PageId = e.PageId,
                     ControlCode = e.ControlCode,
                     ControlDescription = e.ControlDescription
                 })
@@ -97,14 +98,15 @@ public class SecControlListRepository : RepositoryBase<SecControlList, SecContro
                 };
             }
 
-            var fallbackPageId = await ResolveFallbackPageId();
-            if (fallbackPageId == null)
+            int? targetPageId = entityCreate.PageId is > 0 ? entityCreate.PageId : null;
+            targetPageId ??= await ResolveFallbackPageId();
+            if (targetPageId == null || targetPageId <= 0)
             {
                 return new ParentResponseModel()
                 {
                     ErrorCode = ErrorCatalog.ObjectNotFound,
                     IsDone = false,
-                    ReturnMessage = "No page found to attach control."
+                    ReturnMessage = "No page found to attach privilege. Provide pageId or seed at least one page."
                 };
             }
 
@@ -113,7 +115,7 @@ public class SecControlListRepository : RepositoryBase<SecControlList, SecContro
             {
                 ControlCode = normalizedControlCode!,
                 ControlDescription = normalizedDescription!,
-                PageId = fallbackPageId.Value,
+                PageId = targetPageId.Value,
                 InsertUserCode = !string.IsNullOrEmpty(userCode) ? userCode : "no create user code detected",
                 InsertDate = DateTime.Now,
                 IsDeleted = false
@@ -130,6 +132,7 @@ public class SecControlListRepository : RepositoryBase<SecControlList, SecContro
                 SingleObject = new SecControlListDto
                 {
                     Id = entity.Id,
+                    PageId = entity.PageId,
                     ControlCode = entity.ControlCode,
                     ControlDescription = entity.ControlDescription
                 }
@@ -316,5 +319,42 @@ public class SecControlListRepository : RepositoryBase<SecControlList, SecContro
             .OrderBy(c => c.Id)
             .Select(c => (int?)c.PageId)
             .FirstOrDefaultAsync();
+    }
+
+    public async Task<ParentResponseModel> FindAllForPage(int pageId)
+    {
+        try
+        {
+            var listOfObjects = await RepositoryContext.SecControlLists
+                .Where(e => e.IsDeleted == false && e.PageId == pageId)
+                .AsNoTracking()
+                .Select(e => new SecControlListDto
+                {
+                    Id = e.Id,
+                    PageId = e.PageId,
+                    ControlCode = e.ControlCode,
+                    ControlDescription = e.ControlDescription
+                })
+                .OrderBy(e => e.ControlCode)
+                .ToListAsync();
+
+            return new ListOfObjectsResponseModel<SecControlListDto>()
+            {
+                ErrorCode = ErrorCatalog.noError,
+                IsDone = true,
+                ReturnMessage = "Objects Loaded Successufly",
+                Objects = listOfObjects
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.logErrorWithException(ex, $"{typeof(SecControlList).Name} ===> FindAllForPage ");
+            return new ParentResponseModel()
+            {
+                ErrorCode = ErrorCatalog.DataBaseFauiler,
+                IsDone = false,
+                ReturnMessage = ex.Message,
+            };
+        }
     }
 }

@@ -11,7 +11,6 @@ using Contracts.Responses;
 using Microsoft.EntityFrameworkCore;
 using Contracts.DTOs.SecGroupPage;
 using Contracts.DTOs.SecControlList;
-using Contracts.DTOs.SecModule;
 
 namespace Repositories.Models;
 
@@ -121,39 +120,6 @@ public class SecGroupRepository : RepositoryBase<SecGroup, SecGroupDto, SecGroup
         }
     }
 
-    public async Task<ParentResponseModel> AvailableModulesWithGroup(int groupId)
-    {
-        try
-        {
-
-            var availablesModules = await RepositoryContext.SecModules.AsNoTracking().Where(e=>(bool)e.IsTaken)
-                .Select(e => new AvailableModulesWithGroup
-                {
-                    ModuleId = e.Id,
-                    ModuleName = e.ModuleName,
-                    IsAssigned = e.SecModuleGroups.Any(e => e.GroupCode == groupId)
-                }).ToListAsync();
-
-            return new ListOfObjectsResponseModel<AvailableModulesWithGroup>()
-            {
-                ErrorCode = ErrorCatalog.noError,
-                IsDone = true,
-                ReturnMessage = "Objects Loaded Successufly",
-                Objects = availablesModules
-            };
-        }
-        catch (Exception ex)
-        {
-            _logger.logErrorWithException(ex, $"{typeof(SecGroup).Name} ===> AvailableModulesWithGroup ");
-            return new ParentResponseModel()
-            {
-                ErrorCode = ErrorCatalog.DataBaseFauiler,
-                IsDone = false,
-                ReturnMessage = ex.Message,
-            };
-        }
-    }
-
     public override async Task<ParentResponseModel> Update(SecGroupUpdateDto secGroupUpdateDto)
     {
         try
@@ -191,39 +157,6 @@ public class SecGroupRepository : RepositoryBase<SecGroup, SecGroupDto, SecGroup
         }
     }
 
-    public async Task<ParentResponseModel> GetGroupsWithEmployeesAndJobsBasedOnModule(int ModuleId)
-    {
-        try
-        {
-            var listOfObjects = await RepositoryContext.SecGroups
-                .Where(e => e.SecModuleGroups.Any(e => e.ModuleCode == ModuleId)).AsNoTracking()
-                .Select(e => new SecGroupEmployeejobDto
-                {
-                    Id = e.Id,
-                    GroupName = e.GroupName,
-                    Employees = e.SecGroupEmployees.Select(e => e.EmpCode).ToList(),
-                    Jobs = e.SecGroupJobs.Select(e => e.JobCode).ToList()
-                }).ToListAsync();
-
-            return new ListOfObjectsResponseModel<SecGroupEmployeejobDto>()
-            {
-                ErrorCode = ErrorCatalog.noError,
-                IsDone = true,
-                ReturnMessage = "Objects Loaded Successufly",
-                Objects = listOfObjects
-            };
-        }
-        catch (Exception ex)
-        {
-            _logger.logErrorWithException(ex, $"{typeof(SecGroup).Name} ===> GetGroupsWithEmployeesAndJobsBasedOnModule ");
-            return new ParentResponseModel()
-            {
-                ErrorCode = ErrorCatalog.DataBaseFauiler,
-                IsDone = false,
-                ReturnMessage = ex.Message,
-            };
-        }
-    }
     public async Task<ParentResponseModel> AssignJobsEmployeesToGroup(AssignJobsEmployeesToGroup assignJobsEmployeesToGroup)
     {
         try
@@ -262,7 +195,7 @@ public class SecGroupRepository : RepositoryBase<SecGroup, SecGroupDto, SecGroup
         }
         catch (Exception ex)
         {
-            _logger.logErrorWithException(ex, $"{typeof(SecModule).Name} ===> AssignJobsEmployeesToGroup ");
+            _logger.logErrorWithException(ex, $"{typeof(SecGroup).Name} ===> AssignJobsEmployeesToGroup ");
             return new ParentResponseModel()
             {
                 ErrorCode = ErrorCatalog.DataBaseFauiler,
@@ -308,7 +241,7 @@ public class SecGroupRepository : RepositoryBase<SecGroup, SecGroupDto, SecGroup
         }
         catch (Exception ex)
         {
-            _logger.logErrorWithException(ex, $"{typeof(SecModule).Name} ===> DeleteEmployeeOrJobFromGroup ");
+            _logger.logErrorWithException(ex, $"{typeof(SecGroup).Name} ===> DeleteEmployeeOrJobFromGroup ");
             return new ParentResponseModel()
             {
                 ErrorCode = ErrorCatalog.DataBaseFauiler,
@@ -370,21 +303,43 @@ public class SecGroupRepository : RepositoryBase<SecGroup, SecGroupDto, SecGroup
             };
         }
     }
-    public async Task<ParentResponseModel> GetModulesForLookups()
+
+    public async Task<ParentResponseModel> GetEmployeesForGroup(int groupId)
     {
         try
         {
-            var listOfObjects = await RepositoryContext.SecModules.AsNoTracking().Where(e=> (bool)e.IsTaken).
-                Select(e => new SecModuleDto
+            var empCodes = await RepositoryContext.SecGroupEmployees.AsNoTracking()
+                .Where(ge => ge.GroupCode == groupId && ge.IsDeleted == false)
+                .Select(ge => ge.EmpCode)
+                .ToListAsync();
+
+            if (empCodes.Count == 0)
+            {
+                return new ListOfObjectsResponseModel<GroupMemberEmployeeDto>()
                 {
-                    Id = e.Id,
-                    ModuleName = e.ModuleName,
-                    Icon = e.Icon,
-                    Color=e.Color
-                }).ToListAsync();
+                    ErrorCode = ErrorCatalog.noError,
+                    IsDone = true,
+                    ReturnMessage = "Objects Loaded Successufly",
+                    Objects = new List<GroupMemberEmployeeDto>()
+                };
+            }
 
+            var names = await RepositoryContext.Persons.AsNoTracking()
+                .Where(p => empCodes.Contains(p.Id))
+                .Select(p => new { p.Id, p.FullName })
+                .ToListAsync();
 
-            return new ListOfObjectsResponseModel<SecModuleDto>()
+            var nameById = names.ToDictionary(x => x.Id, x => x.FullName ?? string.Empty);
+
+            var listOfObjects = empCodes
+                .Select(id => new GroupMemberEmployeeDto
+                {
+                    Id = id,
+                    EmployeeName = nameById.TryGetValue(id, out var n) ? n : string.Empty
+                })
+                .ToList();
+
+            return new ListOfObjectsResponseModel<GroupMemberEmployeeDto>()
             {
                 ErrorCode = ErrorCatalog.noError,
                 IsDone = true,
@@ -394,7 +349,7 @@ public class SecGroupRepository : RepositoryBase<SecGroup, SecGroupDto, SecGroup
         }
         catch (Exception ex)
         {
-            _logger.logErrorWithException(ex, $"{typeof(SecModule).Name} ===> GetServicesBasedOnModule ");
+            _logger.logErrorWithException(ex, $"{typeof(SecGroup).Name} ===> GetEmployeesForGroup ");
             return new ParentResponseModel()
             {
                 ErrorCode = ErrorCatalog.DataBaseFauiler,
@@ -404,6 +359,60 @@ public class SecGroupRepository : RepositoryBase<SecGroup, SecGroupDto, SecGroup
         }
     }
 
+    public async Task<ParentResponseModel> GetJobsForGroup(int groupId)
+    {
+        try
+        {
+            var jobCodes = await RepositoryContext.SecGroupJobs.AsNoTracking()
+                .Where(gj => gj.GroupCode == groupId && gj.IsDeleted == false)
+                .Select(gj => gj.JobCode)
+                .ToListAsync();
+
+            if (jobCodes.Count == 0)
+            {
+                return new ListOfObjectsResponseModel<GroupMemberJobDto>()
+                {
+                    ErrorCode = ErrorCatalog.noError,
+                    IsDone = true,
+                    ReturnMessage = "Objects Loaded Successufly",
+                    Objects = new List<GroupMemberJobDto>()
+                };
+            }
+
+            var jobRows = await RepositoryContext.Jobs.AsNoTracking()
+                .Where(j => jobCodes.Contains(j.Id))
+                .Select(j => new { j.Id, j.Name })
+                .ToListAsync();
+
+            var nameById = jobRows.ToDictionary(x => x.Id, x => x.Name ?? string.Empty);
+
+            var listOfObjects = jobCodes
+                .Select(id => new GroupMemberJobDto
+                {
+                    Id = id,
+                    Name = nameById.TryGetValue(id, out var n) ? n : string.Empty
+                })
+                .ToList();
+
+            return new ListOfObjectsResponseModel<GroupMemberJobDto>()
+            {
+                ErrorCode = ErrorCatalog.noError,
+                IsDone = true,
+                ReturnMessage = "Objects Loaded Successufly",
+                Objects = listOfObjects
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.logErrorWithException(ex, $"{typeof(SecGroup).Name} ===> GetJobsForGroup ");
+            return new ParentResponseModel()
+            {
+                ErrorCode = ErrorCatalog.DataBaseFauiler,
+                IsDone = false,
+                ReturnMessage = ex.Message,
+            };
+        }
+    }
 
 }
 

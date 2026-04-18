@@ -1,4 +1,3 @@
-using Contracts.DTOs.SecModule;
 using Contracts.DTOs.SecPage;
 using Contracts.interfaces.Models;
 using Contracts.interfaces.Repository;
@@ -36,6 +35,19 @@ public class SecPageController : BaseController<SecPage, SecPageDto, SecPageCrea
     public  async Task<IActionResult> GetLookupsForCreatePage()
     {
         var response = await _repositoryWrapper.SecPages.GetLookupsForCreatePage();
+        return HandleResponse(response);
+    }
+
+    /// <summary>
+    /// Apply multiple <c>pageOrder</c> values in one transaction (recommended after drag-and-drop).
+    /// </summary>
+    [HttpPut("Reorder")]
+    public async Task<IActionResult> Reorder([FromBody] ReorderSecPagesDto body)
+    {
+        if (!ModelState.IsValid)
+            return BadRequest(ModelState);
+
+        var response = await _repositoryWrapper.SecPages.ReorderPages(body);
         return HandleResponse(response);
     }
 

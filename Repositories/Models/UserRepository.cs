@@ -69,7 +69,7 @@ public class UserRepository : RepositoryBase<User, UserDto, UserCreateDto, UserU
         }
         catch (Exception ex)
         {
-            _logger.logErrorWithException(ex, $"{typeof(SecGroup).Name} ===> GetGroupsWithEmployeesAndJobsBasedOnModule ");
+            _logger.logErrorWithException(ex, $"{typeof(User).Name} ===> GetUsers ");
             return new ParentResponseModel()
             {
                 ErrorCode = ErrorCatalog.DataBaseFauiler,
@@ -98,7 +98,7 @@ public class UserRepository : RepositoryBase<User, UserDto, UserCreateDto, UserU
         }
         catch (Exception ex)
         {
-            _logger.logErrorWithException(ex, $"{typeof(SecGroup).Name} ===> GetGroupsWithEmployeesAndJobsBasedOnModule ");
+            _logger.logErrorWithException(ex, $"{typeof(User).Name} ===> ResetPassword ");
             return new ParentResponseModel()
             {
                 ErrorCode = ErrorCatalog.DataBaseFauiler,

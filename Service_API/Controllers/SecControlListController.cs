@@ -12,6 +12,8 @@ using Service_API.Services;
 
 namespace Service_API.Controllers;
 
+/// <summary>Legacy route name for privileges. Prefer <see cref="PrivilegesController"/> for new clients.</summary>
+[ApiExplorerSettings(IgnoreApi = true)]
 [ApiController]
 [Route("[controller]")]
 public class SecControlListController : BaseController<SecControlList, SecControlListDto, SecControlListCreateDto, SecControlListUpdateDto>
