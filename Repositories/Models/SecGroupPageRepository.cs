@@ -145,14 +145,42 @@ public class SecGroupPageRepository : RepositoryBase<SecGroupPage, SecGroupPageD
 
             else if (assignDeletePageFromGroup.AssignFlag)
             {
-                var newControls =assignDeletePageFromGroup.AssignedPageIds.Select(pageId=> new SecGroupPage
+                if (assignDeletePageFromGroup.AssignedPageIds == null || assignDeletePageFromGroup.AssignedPageIds.Count == 0)
                 {
-                    GroupCode = assignDeletePageFromGroup.GroupId,
-                    PageCode = pageId,
-                    InsertDate = DateTime.Now,
-                    InsertUserCode = userCode
-                });
-                await RepositoryContext.SecGroupPages.AddRangeAsync(newControls);
+                    return new ParentResponseModel()
+                    {
+                        ErrorCode = ErrorCatalog.missingValues,
+                        IsDone = false,
+                        ReturnMessage = "AssignedPageIds is required when assignFlag is true."
+                    };
+                }
+
+                var groupId = assignDeletePageFromGroup.GroupId;
+                foreach (var pageId in assignDeletePageFromGroup.AssignedPageIds.Distinct())
+                {
+                    var existing = await RepositoryContext.SecGroupPages
+                        .IgnoreQueryFilters()
+                        .FirstOrDefaultAsync(e => e.GroupCode == groupId && e.PageCode == pageId);
+
+                    if (existing == null)
+                    {
+                        await RepositoryContext.SecGroupPages.AddAsync(new SecGroupPage
+                        {
+                            GroupCode = groupId,
+                            PageCode = pageId,
+                            InsertDate = DateTime.Now,
+                            InsertUserCode = userCode
+                        });
+                    }
+                    else if (existing.IsDeleted)
+                    {
+                        existing.IsDeleted = false;
+                        existing.DeleteUserCode = null;
+                        existing.DeleteDate = null;
+                        existing.LastUpdate = DateTime.Now;
+                        existing.UpdateUserCode = userCode;
+                    }
+                }
             }
             await RepositoryContext.SaveChangesAsync();
             return new SingleObjectResponseModel<SecControlListDto>()
