@@ -136,6 +136,16 @@ public class UserController : BaseController<User, UserDto, UserCreateDto, UserU
         return HandleResponse(response);
     }
 
+    /// <summary>
+    /// User-admin screen: all active users (with person name) and persons who do not have a user row (<c>emp_serial</c>).
+    /// </summary>
+    [HttpGet("GetUsersManagementPageData")]
+    public async Task<IActionResult> GetUsersManagementPageData()
+    {
+        var response = await _repositoryWrapper.Users.GetUsersManagementPageData();
+        return HandleResponse(response);
+    }
+
 
     [HttpGet]
     [Route("GET")]
